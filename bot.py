@@ -25,7 +25,7 @@ async def on_ready():
     # Sync slash (/) commands to Discord
     try:
         synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} slash command(s).")
+        print(f"✅ Sydnced {len(synced)} slash command(s).")
     except Exception as e:
         print(f"❌ Slash command sync failed: {e}")
 
