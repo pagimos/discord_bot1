@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN") or os.getenv("TOKEN")
 if not TOKEN:
-    raise RuntimeError("Bot token not found. Put DISCORD_TOKEN=... in a .env file.")
+    raise RuntimeError("Bot tokenned not found. Put DISCORD_TOKEN=... in a .env file.")
 
 # Intents
 intents = discord.Intents.default()
