@@ -8,10 +8,9 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 
 # Load token from .env
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN") or os.getenv("TOKEN")
-if not TOKEN:
-    raise RuntimeError("Bot tokenned not found. Put DISCORD_TOKEN=... in a .env file.")
+
+TOKEN = MTM5NjE4MTIyOTkwNDMzMDc3Mg.GvG0Q7.kMA2gu8YSouNMpAo6uSA2JPKGwsFC5FIBiC8b8
+
 
 # Intents
 intents = discord.Intents.default()
