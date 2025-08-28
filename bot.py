@@ -38,111 +38,203 @@ async def on_ready():
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"Pong! {round(bot.latency * 1000)}ms")
 
-# Ghost shop command: /ghost with dropdown selection
-@bot.tree.command(name="ghost", description="Shows 5 mysterious items from the ghost shop.")
+# Ghost shop command: /ghost with country selection
+@bot.tree.command(name="ghost", description="Shows countries with mysterious items from the ghost shop.")
 async def ghost(interaction: discord.Interaction):
     user_id = interaction.user.id
     
     # Initialize user selection if not exists
     if user_id not in ghost_selections:
-        ghost_selections[user_id] = []
+        ghost_selections[user_id] = {"country": None, "items": []}
     
     # Create embed for the ghost shop
     embed = discord.Embed(
-        title="👻 Ghost Shop - Mysterious Items",
-        description="Welcome to the ethereal marketplace! Use the dropdown below to select items:",
+        title="👻 Ghost Shop - Choose Your Country",
+        description="Welcome to the ethereal marketplace! Select a country to see its mysterious items:",
         color=0x8B008B  # Dark magenta for spooky theme
     )
     
-    # Add 5 items named after countries with prices in dollars
-    items = [
-        ("🇯🇵 Japan", "$150", "A mysterious katana with unknown powers"),
-        ("🇫🇷 France", "$25", "An enchanted bottle of vintage wine"),
-        ("🇪🇬 Egypt", "$89", "An ancient amulet from the pyramids"),
-        ("🇧🇷 Brazil", "$120", "A mystical crystal from the Amazon"),
-        ("🇷🇺 Russia", "$1800", "A mysterious nesting doll with secrets inside")
+    # Add 5 countries
+    countries = [
+        ("🇯🇵 Japan", "Land of the rising sun and ancient secrets"),
+        ("🇫🇷 France", "Home of enchanted wines and mystical artifacts"),
+        ("🇪🇬 Egypt", "Realm of pharaohs and pyramid mysteries"),
+        ("🇧🇷 Brazil", "Land of Amazonian crystals and jungle magic"),
+        ("🇷🇺 Russia", "Home of nesting dolls with hidden powers")
     ]
     
-    for i, (country, price, description) in enumerate(items, 1):
+    for i, (country, description) in enumerate(countries, 1):
+        is_selected = ghost_selections[user_id]["country"] == i
+        status = "✅ SELECTED" if is_selected else ""
         embed.add_field(
-            name=f"{i}. {country} - {price}",
-            value=description,
+            name=f"{i}. {country}",
+            value=f"{description}{' ' + status if status else ''}",
             inline=False
         )
     
-    # Show current selection info with total in dollars
-    if ghost_selections[user_id]:
-        selected_items = [items[i-1] for i in ghost_selections[user_id]]
-        total_price = " + ".join([f"{item[1]}" for item in selected_items])
-        
-        # Calculate total in dollars
-        total_dollars = sum(int(item[1].replace("$", "")) for item in selected_items)
-        
+    # Show current selection info
+    if ghost_selections[user_id]["country"]:
+        country_name = countries[ghost_selections[user_id]["country"] - 1][0]
         embed.add_field(
-            name="🛒 Your Current Selection",
-            value=f"Items: {len(ghost_selections[user_id])}/5\nTotal: {total_price}\n**Total in Dollars: ${total_dollars}**",
+            name="🌍 Selected Country",
+            value=f"{country_name}",
             inline=False
         )
     
-    embed.set_footer(text="💀 Use the dropdown to select items, then click Confirm Purchase or Clear All!")
+    if ghost_selections[user_id]["items"]:
+        embed.add_field(
+            name="🛒 Selected Items",
+            value=f"Items: {len(ghost_selections[user_id]['items'])}/3",
+            inline=False
+        )
     
-    # Create interactive dropdown and buttons
-    view = GhostShopView(user_id)
+    embed.set_footer(text="💀 Select a country first, then choose items!")
+    
+    # Create interactive view
+    view = CountrySelectionView(user_id)
     
     await interaction.response.send_message(embed=embed, view=view)
 
-# Interactive view for ghost shop with dropdown
-class GhostShopView(discord.ui.View):
+# Country selection view
+class CountrySelectionView(discord.ui.View):
     def __init__(self, user_id: int):
         super().__init__(timeout=300)  # 5 minutes timeout
         self.user_id = user_id
     
     @discord.ui.select(
-        placeholder="Choose an item to select/deselect...",
+        placeholder="Choose a country...",
         min_values=1,
         max_values=1,
         options=[
-            discord.SelectOption(label="1. Japan - $150", value="1", description="A mysterious katana with unknown powers"),
-            discord.SelectOption(label="2. France - $25", value="2", description="An enchanted bottle of vintage wine"),
-            discord.SelectOption(label="3. Egypt - $89", value="3", description="An ancient amulet from the pyramids"),
-            discord.SelectOption(label="4. Brazil - $120", value="4", description="A mystical crystal from the Amazon"),
-            discord.SelectOption(label="5. Russia - $1800", value="5", description="A mysterious nesting doll with secrets inside")
+            discord.SelectOption(label="1. Japan", value="1", description="Land of the rising sun and ancient secrets"),
+            discord.SelectOption(label="2. France", value="2", description="Home of enchanted wines and mystical artifacts"),
+            discord.SelectOption(label="3. Egypt", value="3", description="Realm of pharaohs and pyramid mysteries"),
+            discord.SelectOption(label="4. Brazil", value="4", description="Land of Amazonian crystals and jungle magic"),
+            discord.SelectOption(label="5. Russia", value="5", description="Home of nesting dolls with hidden powers")
         ]
     )
-    async def select_item(self, interaction: discord.Interaction, select: discord.ui.Select):
+    async def select_country(self, interaction: discord.Interaction, select: discord.ui.Select):
         # Check if this is the correct user
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
             return
         
-        item_number = int(select.value)
+        country_number = int(select.value)
         
         # Initialize user selection if not exists
         if self.user_id not in ghost_selections:
-            ghost_selections[self.user_id] = []
+            ghost_selections[self.user_id] = {"country": None, "items": []}
         
-        if item_number in ghost_selections[self.user_id]:
-            # Remove item if already selected
-            ghost_selections[self.user_id].remove(item_number)
-            await interaction.response.send_message(f"❌ Removed item {item_number} from your selection!", ephemeral=True)
-        else:
-            # Add item if not selected
-            if len(ghost_selections[self.user_id]) >= 5:
-                await interaction.response.send_message("❌ You can only select up to 5 items!", ephemeral=True)
-                return
-            
-            ghost_selections[self.user_id].append(item_number)
-            await interaction.response.send_message(f"✅ Added item {item_number} to your selection!", ephemeral=True)
+        # Set selected country and clear previous items
+        ghost_selections[self.user_id]["country"] = country_number
+        ghost_selections[self.user_id]["items"] = []
         
-        # Update the message after a short delay to avoid interaction issues
-        await interaction.followup.send("Updating your selection...", ephemeral=True)
-        await self.update_message(interaction)
+        await interaction.response.send_message(f"✅ Selected country {country_number}! Now choose items from this country.", ephemeral=True)
+        
+        # Show items for selected country
+        await self.show_country_items(interaction, country_number)
     
-    @discord.ui.button(label="🛒 Confirm Purchase", style=discord.ButtonStyle.success, custom_id="confirm")
+    async def show_country_items(self, interaction: discord.Interaction, country_number: int):
+        # Get items for selected country
+        country_items = self.get_country_items(country_number)
+        
+        embed = discord.Embed(
+            title=f"👻 {self.get_country_name(country_number)} - Choose Your Items",
+            description="Select up to 3 items from this country:",
+            color=0x4169E1
+        )
+        
+        for i, (item_name, price, description) in enumerate(country_items, 1):
+            embed.add_field(
+                name=f"{i}. {item_name}",
+                value=f"{description}\n**Price: {price}**",
+                inline=False
+            )
+        
+        embed.set_footer(text="💀 Select up to 3 items, then confirm your purchase!")
+        
+        # Create item selection view
+        item_view = ItemSelectionView(self.user_id, country_number)
+        
+        # Send new message with items
+        await interaction.followup.send(embed=embed, view=item_view)
+    
+    def get_country_name(self, country_number: int):
+        countries = ["Japan", "France", "Egypt", "Brazil", "Russia"]
+        return countries[country_number - 1]
+    
+    def get_country_items(self, country_number: int):
+        all_items = {
+            1: [  # Japan
+                ("Mysterious Katana", "$150", "A legendary blade with unknown powers"),
+                ("Ghost Lantern", "$75", "Illuminates the path to the spirit world"),
+                ("Samurai Armor", "$200", "Protects against supernatural attacks")
+            ],
+            2: [  # France
+                ("Enchanted Wine", "$25", "A vintage bottle with magical properties"),
+                ("Eiffel Tower Charm", "$50", "Brings Parisian magic wherever you go"),
+                ("Royal Crown", "$300", "Worn by ghostly French monarchs")
+            ],
+            3: [  # Egypt
+                ("Pyramid Amulet", "$89", "Contains ancient pharaoh magic"),
+                ("Sphinx Statue", "$120", "Guards your secrets with mystical power"),
+                ("Mummy Bandages", "$45", "Wraps you in protective energy")
+            ],
+            4: [  # Brazil
+                ("Amazon Crystal", "$120", "Harnesses the power of the rainforest"),
+                ("Carnival Mask", "$80", "Transforms you during celebrations"),
+                ("Jungle Totem", "$160", "Connects you to nature spirits")
+            ],
+            5: [  # Russia
+                ("Nesting Doll", "$1800", "Contains multiple layers of mystery"),
+                ("Winter Frost Gem", "$250", "Freezes time around you"),
+                ("Ballet Slippers", "$95", "Dance through dimensions")
+            ]
+        }
+        return all_items.get(country_number, [])
+
+# Item selection view
+class ItemSelectionView(discord.ui.View):
+    def __init__(self, user_id: int, country_number: int):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.country_number = country_number
+    
+    @discord.ui.select(
+        placeholder="Choose items (up to 3)...",
+        min_values=1,
+        max_values=3,
+        options=[
+            discord.SelectOption(label="1. Item 1", value="1"),
+            discord.SelectOption(label="2. Item 2", value="2"),
+            discord.SelectOption(label="3. Item 3", value="3")
+        ]
+    )
+    async def select_items(self, interaction: discord.Interaction, select: discord.ui.Select):
+        # Check if this is the correct user
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
+            return
+        
+        selected_items = [int(value) for value in select.values]
+        
+        # Initialize user selection if not exists
+        if self.user_id not in ghost_selections:
+            ghost_selections[self.user_id] = {"country": None, "items": []}
+        
+        # Update selected items
+        ghost_selections[self.user_id]["items"] = selected_items
+        
+        await interaction.response.send_message(f"✅ Selected {len(selected_items)} items!", ephemeral=True)
+        
+        # Show selection summary
+        await self.show_selection_summary(interaction)
+    
+    @discord.ui.button(label="🛒 Confirm Purchase", style=discord.ButtonStyle.success)
     async def confirm_purchase(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.confirm_purchase_action(interaction)
     
-    @discord.ui.button(label="🗑️ Clear All", style=discord.ButtonStyle.danger, custom_id="clear")
+    @discord.ui.button(label="🗑️ Clear Selection", style=discord.ButtonStyle.danger)
     async def clear_selection(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.clear_selection_action(interaction)
     
@@ -152,49 +244,43 @@ class GhostShopView(discord.ui.View):
             await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
             return
         
-        if not ghost_selections.get(self.user_id):
-            await interaction.response.send_message("❌ You haven't selected any items yet! Select some items first.", ephemeral=True)
+        if not ghost_selections.get(self.user_id, {}).get("items"):
+            await interaction.response.send_message("❌ You haven't selected any items yet!", ephemeral=True)
             return
         
         # Get selected items
-        items = [
-            ("🇯🇵 Japan", "$150", "A mysterious katana with unknown powers"),
-            ("🇫🇷 France", "$25", "An enchanted bottle of vintage wine"),
-            ("🇪🇬 Egypt", "$89", "An ancient amulet from the pyramids"),
-            ("🇧🇷 Brazil", "$120", "A mystical crystal from the Amazon"),
-            ("🇷🇺 Russia", "$1800", "A mysterious nesting doll with secrets inside")
-        ]
+        country_items = self.get_country_items(self.country_number)
+        selected_item_numbers = ghost_selections[self.user_id]["items"]
+        selected_items = [country_items[i-1] for i in selected_item_numbers]
         
-        selected_items = [items[i-1] for i in ghost_selections[self.user_id]]
-        total_price = " + ".join([f"{item[1]}" for item in selected_items])
-        
-        # Calculate total in dollars
+        # Calculate total
         total_dollars = sum(int(item[1].replace("$", "")) for item in selected_items)
+        country_name = self.get_country_name(self.country_number)
         
         # Create confirmation embed
         embed = discord.Embed(
             title="🎉 Purchase Confirmed!",
-            description=f"Congratulations {interaction.user.mention}! Your ghost shop items have been purchased.",
-            color=0x00FF00  # Green for success
+            description=f"Congratulations {interaction.user.mention}! Your {country_name} items have been purchased.",
+            color=0x00FF00
         )
         
-        for country, price, description in selected_items:
+        for item_name, price, description in selected_items:
             embed.add_field(
-                name=f"{country} - {price}",
+                name=f"{item_name} - {price}",
                 value=description,
                 inline=False
             )
         
         embed.add_field(
             name="💰 Total Spent",
-            value=f"{total_price}\n**Total in Dollars: ${total_dollars}**",
+            value=f"**Total in Dollars: ${total_dollars}**",
             inline=False
         )
         
         embed.set_footer(text="✨ Your items will be delivered to your ghost mailbox soon!")
         
         # Clear user selection after purchase
-        ghost_selections[self.user_id] = []
+        ghost_selections[self.user_id] = {"country": None, "items": []}
         
         # Disable all buttons after purchase
         for child in self.children:
@@ -211,57 +297,73 @@ class GhostShopView(discord.ui.View):
         
         # Clear selection
         if self.user_id in ghost_selections:
-            ghost_selections[self.user_id] = []
+            ghost_selections[self.user_id]["items"] = []
         
-        await interaction.response.send_message("🗑️ Your selection has been cleared!", ephemeral=True)
-        
-        # Update the message with cleared selection
-        await self.update_message(interaction)
+        await interaction.response.send_message("🗑️ Your item selection has been cleared!", ephemeral=True)
     
-    async def update_message(self, interaction: discord.Interaction):
-        try:
-            # Create new embed with updated selection
-            embed = discord.Embed(
-                title="👻 Ghost Shop - Mysterious Items",
-                description="Welcome to the ethereal marketplace! Use the dropdown below to select items:",
-                color=0x8B008B
+    async def show_selection_summary(self, interaction: discord.Interaction):
+        country_items = self.get_country_items(self.country_number)
+        selected_item_numbers = ghost_selections[self.user_id]["items"]
+        selected_items = [country_items[i-1] for i in selected_item_numbers]
+        
+        total_dollars = sum(int(item[1].replace("$", "")) for item in selected_items)
+        
+        embed = discord.Embed(
+            title="🛒 Your Selection Summary",
+            description=f"Country: {self.get_country_name(self.country_number)}",
+            color=0x4169E1
+        )
+        
+        for item_name, price, description in selected_items:
+            embed.add_field(
+                name=f"{item_name} - {price}",
+                value=description,
+                inline=False
             )
-            
-            items = [
-                ("🇯🇵 Japan", "$150", "A mysterious katana with unknown powers"),
-                ("🇫🇷 France", "$25", "An enchanted bottle of vintage wine"),
-                ("🇪🇬 Egypt", "$89", "An ancient amulet from the pyramids"),
-                ("🇧🇷 Brazil", "$120", "A mystical crystal from the Amazon"),
-                ("🇷🇺 Russia", "$1800", "A mysterious nesting doll with secrets inside")
+        
+        embed.add_field(
+            name="💰 Total",
+            value=f"**Total in Dollars: ${total_dollars}**",
+            inline=False
+        )
+        
+        embed.set_footer(text="Click Confirm Purchase to complete your order!")
+        
+        await interaction.followup.send(embed=embed)
+    
+    def get_country_name(self, country_number: int):
+        countries = ["Japan", "France", "Egypt", "Brazil", "Russia"]
+        return countries[country_number - 1]
+    
+    def get_country_items(self, country_number: int):
+        all_items = {
+            1: [  # Japan
+                ("Mysterious Katana", "$150", "A legendary blade with unknown powers"),
+                ("Ghost Lantern", "$75", "Illuminates the path to the spirit world"),
+                ("Samurai Armor", "$200", "Protects against supernatural attacks")
+            ],
+            2: [  # France
+                ("Enchanted Wine", "$25", "A vintage bottle with magical properties"),
+                ("Eiffel Tower Charm", "$50", "Brings Parisian magic wherever you go"),
+                ("Royal Crown", "$300", "Worn by ghostly French monarchs")
+            ],
+            3: [  # Egypt
+                ("Pyramid Amulet", "$89", "Contains ancient pharaoh magic"),
+                ("Sphinx Statue", "$120", "Guards your secrets with mystical power"),
+                ("Mummy Bandages", "$45", "Wraps you in protective energy")
+            ],
+            4: [  # Brazil
+                ("Amazon Crystal", "$120", "Harnesses the power of the rainforest"),
+                ("Carnival Mask", "$80", "Transforms you during celebrations"),
+                ("Jungle Totem", "$160", "Connects you to nature spirits")
+            ],
+            5: [  # Russia
+                ("Nesting Doll", "$1800", "Contains multiple layers of mystery"),
+                ("Winter Frost Gem", "$250", "Freezes time around you"),
+                ("Ballet Slippers", "$95", "Dance through dimensions")
             ]
-            
-            for i, (country, price, description) in enumerate(items, 1):
-                embed.add_field(
-                    name=f"{i}. {country} - {price}",
-                    value=description,
-                    inline=False
-                )
-            
-            # Show current selection info with total in dollars
-            if ghost_selections.get(self.user_id):
-                selected_items = [items[i-1] for i in ghost_selections[self.user_id]]
-                total_price = " + ".join([f"{item[1]}" for item in selected_items])
-                
-                # Calculate total in dollars
-                total_dollars = sum(int(item[1].replace("$", "")) for item in selected_items)
-                
-                embed.add_field(
-                    name="🛒 Your Current Selection",
-                    value=f"Items: {len(ghost_selections[self.user_id])}/5\nTotal: {total_price}\n**Total in Dollars: ${total_dollars}**",
-                    inline=False
-                )
-            
-            embed.set_footer(text="💀 Use the dropdown to select items, then click Confirm Purchase or Clear All!")
-            
-            # Edit the original message with new embed
-            await interaction.message.edit(embed=embed)
-        except Exception as e:
-            print(f"Error updating message: {e}")
+        }
+        return all_items.get(country_number, [])
 
 # A classic prefix command: !echo your text
 @bot.command(name="echo", help="Echoes your message back.")
