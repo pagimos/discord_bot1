@@ -129,15 +129,56 @@ class ItemSelect(discord.ui.Select):
             await interaction.response.send_message("This is not your cart!", ephemeral=True)
             return
         
-        # Store selected items for quantity selection
+        # Store selected items for confirmation
         selected_items = []
         for item_index in self.values:
             item = MARKET_DATA[self.category][int(item_index)]
             selected_items.append(item)
         
-        # Show quantity input modal directly
-        modal = QuantityModal(self.user_id, self.category, selected_items)
+        # Show item confirmation view
+        confirmation_view = ItemConfirmationView(self.user_id, self.category, selected_items)
+        
+        # Create simple confirmation embed
+        embed = discord.Embed(
+            title="📋 Items Selected",
+            description=f"You have selected {len(selected_items)} item(s) from **{self.category}**.\nClick 'Confirm' to proceed to quantity selection.",
+            color=discord.Color.orange()
+        )
+        
+        await interaction.response.edit_message(embed=embed, view=confirmation_view)
+
+class ItemConfirmationView(discord.ui.View):
+    def __init__(self, user_id: int, category: str, selected_items: list):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.category = category
+        self.selected_items = selected_items
+    
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm_selection(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your selection!", ephemeral=True)
+            return
+        
+        # Show quantity input modal
+        modal = QuantityModal(self.user_id, self.category, self.selected_items)
         await interaction.response.send_modal(modal)
+    
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
+    async def cancel_selection(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your selection!", ephemeral=True)
+            return
+        
+        # Return to item selection
+        embed = discord.Embed(
+            title=f"🛍️ {self.category}",
+            description="Select multiple items to add to your cart from the dropdown below!",
+            color=discord.Color.blue()
+        )
+        
+        item_view = ItemSelectionView(self.user_id, self.category)
+        await interaction.response.edit_message(embed=embed, view=item_view)
 
 class QuantityModal(discord.ui.Modal):
     def __init__(self, user_id: int, category: str, selected_items: list):
