@@ -64,13 +64,9 @@ async def ghost(interaction: discord.Interaction):
     ]
     
     for i, (country, price, description) in enumerate(items, 1):
-        # Check if item is selected
-        is_selected = i in ghost_selections[user_id]
-        status = "✅ SELECTED" if is_selected else "❌ Not selected"
-        
         embed.add_field(
             name=f"{i}. {country} - {price}",
-            value=f"{description}\n**Status:** {status}",
+            value=description,
             inline=False
         )
     
@@ -138,8 +134,9 @@ class GhostShopView(discord.ui.View):
             ghost_selections[self.user_id].append(item_number)
             await interaction.response.send_message(f"✅ Added item {item_number} to your selection!", ephemeral=True)
         
-        # Resend the entire message with updated embed
-        await self.resend_message(interaction)
+        # Update the message after a short delay to avoid interaction issues
+        await interaction.followup.send("Updating your selection...", ephemeral=True)
+        await self.update_message(interaction)
     
     @discord.ui.button(label="🛒 Confirm Purchase", style=discord.ButtonStyle.success, custom_id="confirm")
     async def confirm_purchase(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -218,53 +215,53 @@ class GhostShopView(discord.ui.View):
         
         await interaction.response.send_message("🗑️ Your selection has been cleared!", ephemeral=True)
         
-        # Resend the message with cleared selection
-        await self.resend_message(interaction)
+        # Update the message with cleared selection
+        await self.update_message(interaction)
     
-    async def resend_message(self, interaction: discord.Interaction):
-        # Create new embed with updated selection
-        embed = discord.Embed(
-            title="👻 Ghost Shop - Mysterious Items",
-            description="Welcome to the ethereal marketplace! Use the dropdown below to select items:",
-            color=0x8B008B
-        )
-        
-        items = [
-            ("🇯🇵 Japan", "$150", "A mysterious katana with unknown powers"),
-            ("🇫🇷 France", "$25", "An enchanted bottle of vintage wine"),
-            ("🇪🇬 Egypt", "$89", "An ancient amulet from the pyramids"),
-            ("🇧🇷 Brazil", "$120", "A mystical crystal from the Amazon"),
-            ("🇷🇺 Russia", "$1800", "A mysterious nesting doll with secrets inside")
-        ]
-        
-        for i, (country, price, description) in enumerate(items, 1):
-            is_selected = i in ghost_selections.get(self.user_id, [])
-            status = "✅ SELECTED" if is_selected else "❌ Not selected"
-            
-            embed.add_field(
-                name=f"{i}. {country} - {price}",
-                value=f"{description}\n**Status:** {status}",
-                inline=False
+    async def update_message(self, interaction: discord.Interaction):
+        try:
+            # Create new embed with updated selection
+            embed = discord.Embed(
+                title="👻 Ghost Shop - Mysterious Items",
+                description="Welcome to the ethereal marketplace! Use the dropdown below to select items:",
+                color=0x8B008B
             )
-        
-        # Show current selection info with total in dollars
-        if ghost_selections.get(self.user_id):
-            selected_items = [items[i-1] for i in ghost_selections[self.user_id]]
-            total_price = " + ".join([f"{item[1]}" for item in selected_items])
             
-            # Calculate total in dollars
-            total_dollars = sum(int(item[1].replace("$", "")) for item in selected_items)
+            items = [
+                ("🇯🇵 Japan", "$150", "A mysterious katana with unknown powers"),
+                ("🇫🇷 France", "$25", "An enchanted bottle of vintage wine"),
+                ("🇪🇬 Egypt", "$89", "An ancient amulet from the pyramids"),
+                ("🇧🇷 Brazil", "$120", "A mystical crystal from the Amazon"),
+                ("🇷🇺 Russia", "$1800", "A mysterious nesting doll with secrets inside")
+            ]
             
-            embed.add_field(
-                name="🛒 Your Current Selection",
-                value=f"Items: {len(ghost_selections[self.user_id])}/5\nTotal: {total_price}\n**Total in Dollars: ${total_dollars}**",
-                inline=False
-            )
-        
-        embed.set_footer(text="💀 Use the dropdown to select items, then click Confirm Purchase or Clear All!")
-        
-        # Edit the original message with new embed
-        await interaction.message.edit(embed=embed)
+            for i, (country, price, description) in enumerate(items, 1):
+                embed.add_field(
+                    name=f"{i}. {country} - {price}",
+                    value=description,
+                    inline=False
+                )
+            
+            # Show current selection info with total in dollars
+            if ghost_selections.get(self.user_id):
+                selected_items = [items[i-1] for i in ghost_selections[self.user_id]]
+                total_price = " + ".join([f"{item[1]}" for item in selected_items])
+                
+                # Calculate total in dollars
+                total_dollars = sum(int(item[1].replace("$", "")) for item in selected_items)
+                
+                embed.add_field(
+                    name="🛒 Your Current Selection",
+                    value=f"Items: {len(ghost_selections[self.user_id])}/5\nTotal: {total_price}\n**Total in Dollars: ${total_dollars}**",
+                    inline=False
+                )
+            
+            embed.set_footer(text="💀 Use the dropdown to select items, then click Confirm Purchase or Clear All!")
+            
+            # Edit the original message with new embed
+            await interaction.message.edit(embed=embed)
+        except Exception as e:
+            print(f"Error updating message: {e}")
 
 # A classic prefix command: !echo your text
 @bot.command(name="echo", help="Echoes your message back.")
