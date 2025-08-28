@@ -30,7 +30,7 @@ MARKET_DATA = {
         {"name": "MK2 Pistol", "price": 65000, "description": "Advanced pistol with improved accuracy"},
         {"name": "Glock18c", "price": 95000, "description": "High-rate automatic pistol"},
         {"name": "Micro SMG", "price": 100000, "description": "Compact submachine gun"},
-        {"name": "Combat PDW", "price": 129500, "description": "Personal defense weapon"},0
+        {"name": "Combat PDW", "price": 129500, "description": "Personal defense weapon"},
         {"name": "Shotgun", "price": 120000, "description": "Close-range combat shotgun"},
         {"name": "Ammo Pistol", "price": 1500, "description": "Ammunition for pistols"},
         {"name": "Ammo SMG", "price": 2000, "description": "Ammunition for submachine guns"},
