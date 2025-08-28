@@ -135,7 +135,7 @@ class ItemSelect(discord.ui.Select):
         for i, item in enumerate(items):
             options.append(
                 discord.SelectOption(
-                    label=item['name'],
+                    label=f"${item['price']:.2f} - {item['name']}",
                     description=item['description'],
                     value=str(i)
                 )
@@ -356,36 +356,22 @@ class CartManagementView(discord.ui.View):
                 }
             total += item['price']
         
-        # Create order summary
-        embed = discord.Embed(
-            title="🎉 Order Confirmed!",
-            description="Thank you for your purchase! Here's your order summary:",
-            color=discord.Color.green(),
-            timestamp=discord.utils.utcnow()
-        )
-        
+        # Create cart display string for order confirmation
+        order_display = ""
         for item_data in item_counts.values():
             item = item_data['item']
             count = item_data['count']
             subtotal = item['price'] * count
-            
-            if count > 1:
-                embed.add_field(
-                    name=f"${item['price']:.2f} x{count} = ${subtotal:.2f} - {item['name']}",
-                    value=item['description'],
-                    inline=False
-                )
-            else:
-                embed.add_field(
-                    name=f"${item['price']:.2f} - {item['name']}",
-                    value=item['description'],
-                    inline=False
-                )
+            order_display += f"- {count} {item['name']} : ${subtotal:.2f}\n"
         
-        embed.add_field(
-            name="💰 Final Total",
-            value=f"**${total:.2f} USD**",
-            inline=False
+        order_display += f"\nTotal : ${total:.2f}"
+        
+        # Create order summary
+        embed = discord.Embed(
+            title="🎉 Order Confirmed!",
+            description=f"Thank you for your purchase! Here's your order summary:\n\n{order_display}",
+            color=discord.Color.green(),
+            timestamp=discord.utils.utcnow()
         )
         
         embed.add_field(
