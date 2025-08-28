@@ -26,11 +26,11 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Market data
 MARKET_DATA = {
     "Guns": [
-        {"name": "Combat Pistol", "price": 54500, "description": "Standard sidearm for combat situations"},
+        {"name": "Combat Pistol", "price": 55000, "description": "Standard sidearm for combat situations"},
         {"name": "MK2 Pistol", "price": 65000, "description": "Advanced pistol with improved accuracy"},
         {"name": "Glock18c", "price": 95000, "description": "High-rate automatic pistol"},
-        {"name": "Micro SMG", "price": 99500, "description": "Compact submachine gun"},
-        {"name": "Combat PDW", "price": 129500, "description": "Personal defense weapon"},
+        {"name": "Micro SMG", "price": 100000, "description": "Compact submachine gun"},
+        {"name": "Combat PDW", "price": 129500, "description": "Personal defense weapon"},0
         {"name": "Shotgun", "price": 120000, "description": "Close-range combat shotgun"},
         {"name": "Ammo Pistol", "price": 1500, "description": "Ammunition for pistols"},
         {"name": "Ammo SMG", "price": 2000, "description": "Ammunition for submachine guns"},
@@ -108,10 +108,11 @@ class ItemSelect(discord.ui.Select):
         options = []
         
         for i, item in enumerate(items):
+            # Format price to remove .00 for whole numbers
+            price_str = f"${item['price']:,}" if item['price'] % 1 == 0 else f"${item['price']:,.2f}"
             options.append(
                 discord.SelectOption(
-                    label=f"{item['name']} - ${item['price']:.2f}",
-                    description=item['description'],
+                    label=f"{item['name']} - {price_str}",
                     value=str(i)
                 )
             )
@@ -337,9 +338,13 @@ class CartManagementView(discord.ui.View):
             item = item_data['item']
             count = item_data['count']
             subtotal = item['price'] * count
-            order_display += f"- {count} {item['name']} : ${subtotal:.2f}\n"
+            # Format price to remove .00 for whole numbers
+            subtotal_str = f"${subtotal:,}" if subtotal % 1 == 0 else f"${subtotal:,.2f}"
+            order_display += f"- {count} {item['name']} : {subtotal_str}\n"
         
-        order_display += f"\nTotal : ${total:.2f}"
+        # Format total to remove .00 for whole numbers
+        total_str = f"${total:,}" if total % 1 == 0 else f"${total:,.2f}"
+        order_display += f"\nTotal : {total_str}"
         
         # Create order summary
         embed = discord.Embed(
@@ -488,9 +493,13 @@ class ItemSelectionView(discord.ui.View):
             item = item_data['item']
             count = item_data['count']
             subtotal = item['price'] * count
-            cart_display += f"- {count} {item['name']} : ${subtotal:.2f}\n"
+            # Format price to remove .00 for whole numbers
+            subtotal_str = f"${subtotal:,}" if subtotal % 1 == 0 else f"${subtotal:,.2f}"
+            cart_display += f"- {count} {item['name']} : {subtotal_str}\n"
         
-        cart_display += f"\nTotal : ${total:.2f}"
+        # Format total to remove .00 for whole numbers
+        total_str = f"${total:,}" if total % 1 == 0 else f"${total:,.2f}"
+        cart_display += f"\nTotal : {total_str}"
         
         embed = discord.Embed(
             title="🛒 Your Shopping Cart",
