@@ -135,7 +135,7 @@ class ItemSelect(discord.ui.Select):
         for i, item in enumerate(items):
             options.append(
                 discord.SelectOption(
-                    label=f"${item['price']:.2f} - {item['name']}",
+                    label=item['name'],
                     description=item['description'],
                     value=str(i)
                 )
@@ -153,25 +153,126 @@ class ItemSelect(discord.ui.Select):
             await interaction.response.send_message("This is not your cart!", ephemeral=True)
             return
         
+        # Store selected items for quantity selection
+        selected_items = []
+        for item_index in self.values:
+            item = MARKET_DATA[self.country][int(item_index)]
+            selected_items.append(item)
+        
+        # Show quantity selection view
+        quantity_view = QuantitySelectionView(self.user_id, self.country, selected_items)
+        
+        embed = discord.Embed(
+            title="📦 Select Quantities",
+            description="Choose the quantity for each selected item:",
+            color=discord.Color.orange()
+        )
+        
+        for item in selected_items:
+            embed.add_field(
+                name=f"${item['price']:.2f} - {item['name']}",
+                value=item['description'],
+                inline=False
+            )
+        
+        await interaction.response.edit_message(embed=embed, view=quantity_view)
+
+class QuantitySelect(discord.ui.Select):
+    def __init__(self, user_id: int, country: str, item: dict, item_index: int):
+        self.user_id = user_id
+        self.country = country
+        self.item = item
+        self.item_index = item_index
+        
+        options = []
+        for i in range(1, 11):  # Allow quantities 1-10
+            options.append(
+                discord.SelectOption(
+                    label=f"Quantity: {i}",
+                    value=str(i)
+                )
+            )
+        
+        super().__init__(
+            placeholder=f"Select quantity for {item['name']}...",
+            min_values=1,
+            max_values=1,
+            options=options,
+            row=item_index  # Different row for each item
+        )
+    
+    async def callback(self, interaction: discord.Interaction):
+        # This will be handled by the parent view
+        pass
+
+class QuantitySelectionView(discord.ui.View):
+    def __init__(self, user_id: int, country: str, selected_items: list):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.country = country
+        self.selected_items = selected_items
+        self.quantities = {}
+        
+        # Add quantity selects for each item (max 5 items due to Discord limits)
+        for i, item in enumerate(selected_items[:5]):
+            quantity_select = QuantitySelect(user_id, country, item, i)
+            self.add_item(quantity_select)
+    
+    @discord.ui.button(label="Add to Cart", style=discord.ButtonStyle.success, emoji="✅", row=4)
+    async def add_to_cart(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your cart!", ephemeral=True)
+            return
+        
         # Initialize user order if not exists
         if self.user_id not in user_orders:
             user_orders[self.user_id] = []
         
         added_items = []
-        total_added = 0
         
-        # Add all selected items to cart
-        for item_index in self.values:
-            item = MARKET_DATA[self.country][int(item_index)]
-            user_orders[self.user_id].append(item)
-            added_items.append(f"**{item['name']}** (${item['price']:.2f})")
-            total_added += item['price']
+        # Get quantities from dropdowns
+        for i, item in enumerate(self.selected_items):
+            # Find the corresponding select component
+            quantity_select = None
+            for component in self.children:
+                if isinstance(component, QuantitySelect) and component.item == item:
+                    quantity_select = component
+                    break
+            
+            if quantity_select and quantity_select.values:
+                quantity = int(quantity_select.values[0])
+                # Add items based on quantity
+                for _ in range(quantity):
+                    user_orders[self.user_id].append(item)
+                added_items.append(f"**{item['name']}** x{quantity}")
+            else:
+                # Default quantity of 1 if not selected
+                user_orders[self.user_id].append(item)
+                added_items.append(f"**{item['name']}** x1")
         
-        items_text = "\n".join(added_items)
-        await interaction.response.send_message(
-            f"✅ Added to cart:\n{items_text}\n\n💰 Total added: ${total_added:.2f}",
-            ephemeral=True
+        # Create confirmation embed
+        embed = discord.Embed(
+            title="✅ Items Added to Cart!",
+            description=f"Successfully added items from **{self.country}**:",
+            color=discord.Color.green()
         )
+        
+        for item_text in added_items:
+            embed.add_field(
+                name="📦 Added:",
+                value=item_text,
+                inline=False
+            )
+        
+        embed.add_field(
+            name="🛒 Next Steps:",
+            value="• Browse other countries\n• View your cart\n• Continue shopping",
+            inline=False
+        )
+        
+        # Return to item selection view for this country
+        item_view = ItemSelectionView(self.user_id, self.country)
+        await interaction.response.edit_message(embed=embed, view=item_view)
 
 class MarketView(discord.ui.View):
     def __init__(self, user_id: int):
@@ -277,9 +378,8 @@ class ItemSelectionView(discord.ui.View):
             await interaction.response.send_message("Your cart is empty!", ephemeral=True)
             return
         
-        # Show current cart contents
+        # Show current cart contents WITHOUT total
         cart_items = user_orders[self.user_id]
-        total = sum(item["price"] for item in cart_items)
         
         # Group items by name for display
         item_counts = {}
@@ -295,30 +395,30 @@ class ItemSelectionView(discord.ui.View):
         
         embed = discord.Embed(
             title="🛒 Your Shopping Cart",
+            description="Review your items below. Click 'Confirm Order' to see total and complete purchase.",
             color=discord.Color.blue()
         )
         
         for item_data in item_counts.values():
             item = item_data['item']
             count = item_data['count']
-            subtotal = item['price'] * count
             
             if count > 1:
                 embed.add_field(
-                    name=f"${item['price']:.2f} x{count} = ${subtotal:.2f}",
-                    value=f"**{item['name']}** - {item['description']}",
+                    name=f"{item['name']} x{count}",
+                    value=item['description'],
                     inline=False
                 )
             else:
                 embed.add_field(
-                    name=f"${item['price']:.2f}",
-                    value=f"**{item['name']}** - {item['description']}",
+                    name=item['name'],
+                    value=item['description'],
                     inline=False
                 )
         
         embed.add_field(
-            name="💰 Current Total",
-            value=f"**${total:.2f} USD**",
+            name="💡 Tip",
+            value="You can continue shopping from different countries before confirming!",
             inline=False
         )
         
