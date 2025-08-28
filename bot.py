@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Load token from .env
 
-TOKEN = MTM5NjE4MTIyOTkwNDMzMDc3Mg.GvG0Q7.kMA2gu8YSouNMpAo6uSA2JPKGwsFC5FIBiC8b8
+TOKEN = "MTM5NjE4MTIyOTkwNDMzMDc3Mg.GvG0Q7.kMA2gu8YSouNMpAo6uSA2JPKGwsFC5FIBiC8b8"
 
 
 # Intents
