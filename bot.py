@@ -35,6 +35,36 @@ async def on_ready():
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"Pong! {round(bot.latency * 1000)}ms")
 
+# Ghost shop command: /ghost
+@bot.tree.command(name="ghost", description="Shows 5 mysterious items from the ghost shop.")
+async def ghost(interaction: discord.Interaction):
+    # Create embed for the ghost shop
+    embed = discord.Embed(
+        title="👻 Ghost Shop - Mysterious Items",
+        description="Welcome to the ethereal marketplace! Here are today's offerings:",
+        color=0x8B008B  # Dark magenta for spooky theme
+    )
+    
+    # Add 5 items named after countries with prices
+    items = [
+        ("🇯🇵 Japan", "¥15,000", "A mysterious katana with unknown powers"),
+        ("🇫🇷 France", "€2,500", "An enchanted bottle of vintage wine"),
+        ("🇪🇬 Egypt", "$8,900", "An ancient amulet from the pyramids"),
+        ("🇧🇷 Brazil", "R$12,000", "A mystical crystal from the Amazon"),
+        ("🇷🇺 Russia", "₽180,000", "A mysterious nesting doll with secrets inside")
+    ]
+    
+    for country, price, description in items:
+        embed.add_field(
+            name=f"{country} - {price}",
+            value=description,
+            inline=False
+        )
+    
+    embed.set_footer(text="💀 Items may have supernatural properties. Purchase at your own risk!")
+    
+    await interaction.response.send_message(embed=embed)
+
 # A classic prefix command: !echo your text
 @bot.command(name="echo", help="Echoes your message back.")
 async def echo(ctx, *, message: str):
