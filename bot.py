@@ -121,6 +121,7 @@ class CountrySelectionView(discord.ui.View):
                 return
             
             country_number = int(select.value)
+            print(f"User {self.user_id} selected country {country_number}")
             
             # Initialize user selection if not exists
             if self.user_id not in ghost_selections:
@@ -134,6 +135,7 @@ class CountrySelectionView(discord.ui.View):
             await self.show_country_items(interaction, country_number)
         except Exception as e:
             print(f"Error in select_country: {e}")
+            logging.error(f"Country selection error for user {self.user_id}: {e}")
             await interaction.response.send_message("❌ An error occurred while processing your country selection. Please try again.", ephemeral=True)
     
     async def show_country_items(self, interaction: discord.Interaction, country_number: int):
@@ -163,6 +165,7 @@ class CountrySelectionView(discord.ui.View):
             await interaction.response.edit_message(embed=embed, view=item_view)
         except Exception as e:
             print(f"Error in show_country_items: {e}")
+            logging.error(f"Error showing country items for user {self.user_id}, country {country_number}: {e}")
             await interaction.response.send_message("❌ An error occurred while showing country items. Please try again.", ephemeral=True)
     
     def get_country_name(self, country_number: int):
@@ -221,7 +224,7 @@ class ItemSelectionView(discord.ui.View):
                 )
             )
         
-        # Create the select menu with dynamic options
+        # Create the select menu with the options
         self.add_item(discord.ui.Select(
             placeholder="Choose items (up to 3)...",
             min_values=1,
@@ -230,21 +233,11 @@ class ItemSelectionView(discord.ui.View):
             custom_id="item_selection"
         ))
     
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        # Handle the select interaction manually since we're creating it dynamically
-        if interaction.data.get("custom_id") == "item_selection":
-            await self.handle_item_selection(interaction, interaction.data.get("values", []))
-            return False  # We've handled the interaction
-        return True
-    
-    async def handle_item_selection(self, interaction: discord.Interaction, values: list):
+    async def select_items(self, interaction: discord.Interaction, select_data: dict):
         try:
-            # Check if this is the correct user
-            if interaction.user.id != self.user_id:
-                await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
-                return
-            
-            selected_items = [int(value) for value in values]
+            # Handle the actual selection
+            selected_items = [int(value) for value in select_data.get("values", [])]
+            print(f"User {self.user_id} selected items: {selected_items}")
             
             # Initialize user selection if not exists
             if self.user_id not in ghost_selections:
@@ -256,8 +249,22 @@ class ItemSelectionView(discord.ui.View):
             # Show selection summary
             await self.show_selection_summary(interaction)
         except Exception as e:
-            print(f"Error in handle_item_selection: {e}")
+            print(f"Error in select_items: {e}")
+            logging.error(f"Error in item selection for user {self.user_id}, country {self.country_number}: {e}")
             await interaction.response.send_message("❌ An error occurred while processing your selection. Please try again.", ephemeral=True)
+    
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Check if this is the correct user for all interactions
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
+            return False
+        
+        # Handle select menu interactions
+        if interaction.data.get("custom_id") == "item_selection":
+            await self.select_items(interaction, interaction.data)
+            return False  # We've handled the interaction
+        
+        return True
     
     @discord.ui.button(label="🛒 Confirm Purchase", style=discord.ButtonStyle.success)
     async def confirm_purchase(self, interaction: discord.Interaction, button: discord.ui.Button):
