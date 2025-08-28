@@ -25,75 +25,58 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Market data
 MARKET_DATA = {
-    "United States": [
-        {"name": "Premium Coffee Beans", "price": 24.99, "description": "Fresh roasted Arabica beans"},
-        {"name": "Artisan Bread", "price": 8.50, "description": "Handcrafted sourdough loaf"},
-        {"name": "Organic Honey", "price": 15.99, "description": "Pure wildflower honey"}
+    "Guns": [
+        {"name": "Combat Pistol", "price": 54500, "description": "Standard sidearm for combat situations"},
+        {"name": "MK2 Pistol", "price": 65000, "description": "Advanced pistol with improved accuracy"},
+        {"name": "Glock18c", "price": 95000, "description": "High-rate automatic pistol"},
+        {"name": "Micro SMG", "price": 99500, "description": "Compact submachine gun"},
+        {"name": "Combat PDW", "price": 129500, "description": "Personal defense weapon"},
+        {"name": "Shotgun", "price": 120000, "description": "Close-range combat shotgun"},
+        {"name": "Ammo Pistol", "price": 1500, "description": "Ammunition for pistols"},
+        {"name": "Ammo SMG", "price": 2000, "description": "Ammunition for submachine guns"},
+        {"name": "Ammo Shotgun", "price": 2000, "description": "Ammunition for shotguns"}
     ],
-    "Japan": [
-        {"name": "Matcha Tea Set", "price": 45.00, "description": "Traditional Japanese green tea"},
-        {"name": "Sushi Rice", "price": 12.99, "description": "Premium short-grain rice"},
-        {"name": "Miso Paste", "price": 18.50, "description": "Authentic fermented soybean paste"}
+    "Drugs": [
+        {"name": "Pallet Coke", "price": 1050000, "description": "High-grade cocaine pallet"},
+        {"name": "Pallet Weed", "price": 800000, "description": "Premium cannabis pallet"}
     ],
-    "Italy": [
-        {"name": "Extra Virgin Olive Oil", "price": 32.99, "description": "Cold-pressed from Tuscany"},
-        {"name": "Truffle Pasta", "price": 28.00, "description": "Black truffle infused pasta"},
-        {"name": "Aged Balsamic", "price": 55.99, "description": "25-year aged vinegar"}
-    ],
-    "France": [
-        {"name": "Champagne", "price": 89.99, "description": "Vintage French sparkling wine"},
-        {"name": "Camembert Cheese", "price": 22.50, "description": "Creamy Normandy cheese"},
-        {"name": "Lavender Honey", "price": 19.99, "description": "Provence lavender-infused honey"}
-    ],
-    "Mexico": [
-        {"name": "Chili Peppers", "price": 14.99, "description": "Assorted dried Mexican chilies"},
-        {"name": "Tequila", "price": 65.00, "description": "Premium blue agave tequila"},
-        {"name": "Mexican Chocolate", "price": 16.50, "description": "Dark chocolate with cinnamon"}
+    "Heist Pack": [
+        {"name": "Fleeca Heist Pack", "price": 60000, "description": "Equipment pack for bank heists"},
+        {"name": "Bijoux Heist Pack", "price": 100000, "description": "Specialized jewelry store heist kit"},
+        {"name": "Paleto Heist Pack", "price": 100000, "description": "Advanced heist equipment package"}
     ]
 }
 
 # Store user orders
 user_orders = {}
 
-class CountrySelect(discord.ui.Select):
+class CategorySelect(discord.ui.Select):
     def __init__(self, user_id: int):
         self.user_id = user_id
         
         options = [
             discord.SelectOption(
-                label="United States",
-                description="Browse American specialty items",
-                emoji="🇺🇸",
-                value="United States"
+                label="Guns",
+                description="Firearms and ammunition",
+                emoji="🔫",
+                value="Guns"
             ),
             discord.SelectOption(
-                label="Japan",
-                description="Discover Japanese delicacies",
-                emoji="🇯🇵",
-                value="Japan"
+                label="Drugs",
+                description="Narcotics and substances",
+                emoji="💊",
+                value="Drugs"
             ),
             discord.SelectOption(
-                label="Italy",
-                description="Italian gourmet products",
-                emoji="🇮🇹",
-                value="Italy"
-            ),
-            discord.SelectOption(
-                label="France",
-                description="French luxury items",
-                emoji="🇫🇷",
-                value="France"
-            ),
-            discord.SelectOption(
-                label="Mexico",
-                description="Mexican traditional products",
-                emoji="🇲🇽",
-                value="Mexico"
+                label="Heist Pack",
+                description="Heist equipment packages",
+                emoji="💰",
+                value="Heist Pack"
             )
         ]
         
         super().__init__(
-            placeholder="🌍 Choose a country to browse...",
+            placeholder="🛒 Choose a category to browse...",
             min_values=1,
             max_values=1,
             options=options
@@ -104,24 +87,24 @@ class CountrySelect(discord.ui.Select):
             await interaction.response.send_message("This market is not for you!", ephemeral=True)
             return
         
-        country = self.values[0]
+        category = self.values[0]
         
         embed = discord.Embed(
-            title=f"🛍️ {country} Market",
+            title=f"🛍️ {category}",
             description="Select multiple items to add to your cart from the dropdown below!",
             color=discord.Color.blue()
         )
         
         # Create item selection view
-        item_view = ItemSelectionView(self.user_id, country)
+        item_view = ItemSelectionView(self.user_id, category)
         await interaction.response.edit_message(embed=embed, view=item_view)
 
 class ItemSelect(discord.ui.Select):
-    def __init__(self, user_id: int, country: str):
+    def __init__(self, user_id: int, category: str):
         self.user_id = user_id
-        self.country = country
+        self.category = category
         
-        items = MARKET_DATA[country]
+        items = MARKET_DATA[category]
         options = []
         
         for i, item in enumerate(items):
@@ -148,18 +131,18 @@ class ItemSelect(discord.ui.Select):
         # Store selected items for quantity selection
         selected_items = []
         for item_index in self.values:
-            item = MARKET_DATA[self.country][int(item_index)]
+            item = MARKET_DATA[self.category][int(item_index)]
             selected_items.append(item)
         
         # Show quantity input modal directly
-        modal = QuantityModal(self.user_id, self.country, selected_items)
+        modal = QuantityModal(self.user_id, self.category, selected_items)
         await interaction.response.send_modal(modal)
 
 class QuantityModal(discord.ui.Modal):
-    def __init__(self, user_id: int, country: str, selected_items: list):
+    def __init__(self, user_id: int, category: str, selected_items: list):
         super().__init__(title="Enter Quantities")
         self.user_id = user_id
-        self.country = country
+        self.category = category
         self.selected_items = selected_items
         
         # Add text inputs for each item (max 5 due to Discord limits)
@@ -210,7 +193,7 @@ class QuantityModal(discord.ui.Modal):
         # Create confirmation embed
         embed = discord.Embed(
             title="✅ Items Added to Cart!",
-            description=f"Successfully added items from **{self.country}**:",
+            description=f"Successfully added items from **{self.category}**:",
             color=discord.Color.green()
         )
         
@@ -223,12 +206,12 @@ class QuantityModal(discord.ui.Modal):
         
         embed.add_field(
             name="🛒 Next Steps:",
-            value="• Browse other countries\n• View your cart\n• Continue shopping",
+            value="• Browse other categories\n• View your cart\n• Continue shopping",
             inline=False
         )
         
-        # Return to item selection view for this country
-        item_view = ItemSelectionView(self.user_id, self.country)
+        # Return to item selection view for this category
+        item_view = ItemSelectionView(self.user_id, self.category)
         await interaction.response.edit_message(embed=embed, view=item_view)
 
 
@@ -249,25 +232,25 @@ class CartManagementView(discord.ui.View):
             return
         
         embed = discord.Embed(
-            title="🌍 International Market",
-            description="Welcome back! Choose a country to browse their unique items.",
+            title="🏪 Black Market",
+            description="Welcome back! Choose a category to browse available items.",
             color=discord.Color.gold()
         )
         
         embed.add_field(
-            name="Available Countries",
-            value="🇺🇸 United States\n🇯🇵 Japan\n🇮🇹 Italy\n🇫🇷 France\n🇲🇽 Mexico",
+            name="Available Categories",
+            value="🔫 Guns\n💊 Drugs\n💰 Heist Pack",
             inline=False
         )
         
         embed.add_field(
             name="How it works",
-            value="1. Select a country from dropdown\n2. Choose multiple items to add to cart\n3. Enter quantities\n4. View cart and confirm order",
+            value="1. Select a category from dropdown\n2. Choose multiple items to add to cart\n3. Enter quantities\n4. View cart and confirm order",
             inline=False
         )
         
-        # Create country selection view
-        view = CountryView(interaction.user.id)
+        # Create category selection view
+        view = CategoryView(interaction.user.id)
         await interaction.response.edit_message(embed=embed, view=view)
     
     @discord.ui.button(label="Clear Cart", style=discord.ButtonStyle.danger, emoji="🗑️")
@@ -460,18 +443,18 @@ class MarketView(discord.ui.View):
         # Clear the order after confirmation
         user_orders[self.user_id] = []
 
-class CountryView(discord.ui.View):
+class CategoryView(discord.ui.View):
     def __init__(self, user_id: int):
         super().__init__(timeout=300)
         self.user_id = user_id
-        self.add_item(CountrySelect(user_id))
+        self.add_item(CategorySelect(user_id))
 
 class ItemSelectionView(discord.ui.View):
-    def __init__(self, user_id: int, country: str):
+    def __init__(self, user_id: int, category: str):
         super().__init__(timeout=300)
         self.user_id = user_id
-        self.country = country
-        self.add_item(ItemSelect(user_id, country))
+        self.category = category
+        self.add_item(ItemSelect(user_id, category))
     
     @discord.ui.button(label="View Cart", style=discord.ButtonStyle.success, emoji="🛒")
     async def view_cart(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -519,32 +502,32 @@ class ItemSelectionView(discord.ui.View):
         cart_view = CartManagementView(self.user_id)
         await interaction.response.edit_message(embed=embed, view=cart_view)
     
-    @discord.ui.button(label="Browse Other Countries", style=discord.ButtonStyle.secondary, emoji="🌍")
-    async def browse_countries(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="Browse Other Categories", style=discord.ButtonStyle.secondary, emoji="🏪")
+    async def browse_categories(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("This market is not for you!", ephemeral=True)
             return
         
         embed = discord.Embed(
-            title="🌍 International Market",
-            description="Welcome to the market! Choose a country to browse their unique items.",
+            title="🏪 Black Market",
+            description="Welcome to the black market! Choose a category to browse available items.",
             color=discord.Color.gold()
         )
         
         embed.add_field(
-            name="Available Countries",
-            value="🇺🇸 United States\n🇯🇵 Japan\n🇮🇹 Italy\n🇫🇷 France\n🇲🇽 Mexico",
+            name="Available Categories",
+            value="🔫 Guns\n💊 Drugs\n💰 Heist Pack",
             inline=False
         )
         
         embed.add_field(
             name="How it works",
-            value="1. Select a country from dropdown\n2. Choose multiple items to add to cart\n3. View cart and confirm order",
+            value="1. Select a category from dropdown\n2. Choose multiple items to add to cart\n3. View cart and confirm order",
             inline=False
         )
         
-        # Create country selection view
-        view = CountryView(interaction.user.id)
+        # Create category selection view
+        view = CategoryView(interaction.user.id)
         await interaction.response.edit_message(embed=embed, view=view)
 
 @bot.event
@@ -558,28 +541,28 @@ async def on_ready():
         print(f"❌ Slash command sync failed: {e}")
 
 # Market command
-@bot.tree.command(name="market", description="Open the international market to browse items from different countries")
+@bot.tree.command(name="market", description="Open the black market to browse guns, drugs, and heist packs")
 async def market(interaction: discord.Interaction):
     embed = discord.Embed(
-        title="🌍 International Market",
-        description="Welcome to the market! Choose a country to browse their unique items.",
+        title="🏪 Black Market",
+        description="Welcome to the black market! Choose a category to browse available items.",
         color=discord.Color.gold()
     )
     
     embed.add_field(
-        name="Available Countries",
-        value="🇺🇸 United States\n🇯🇵 Japan\n🇮🇹 Italy\n🇫🇷 France\n🇲🇽 Mexico",
+        name="Available Categories",
+        value="🔫 Guns\n💊 Drugs\n💰 Heist Pack",
         inline=False
     )
     
     embed.add_field(
         name="How it works",
-        value="1. Select a country\n2. Choose items to add to cart\n3. View cart and confirm order",
+        value="1. Select a category\n2. Choose items to add to cart\n3. View cart and confirm order",
         inline=False
     )
     
-    # Create country selection view
-    view = CountryView(interaction.user.id)
+    # Create category selection view
+    view = CategoryView(interaction.user.id)
     await interaction.response.send_message(embed=embed, view=view)
 
 # A simple slash command: /ping
