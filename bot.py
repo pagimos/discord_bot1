@@ -105,20 +105,12 @@ class CountrySelect(discord.ui.Select):
             return
         
         country = self.values[0]
-        items = MARKET_DATA[country]
         
         embed = discord.Embed(
             title=f"🛍️ {country} Market",
-            description="Select multiple items to add to your cart!",
+            description="Select multiple items to add to your cart from the dropdown below!",
             color=discord.Color.blue()
         )
-        
-        for i, item in enumerate(items):
-            embed.add_field(
-                name=f"${item['price']:.2f} - {item['name']}",
-                value=item['description'],
-                inline=False
-            )
         
         # Create item selection view
         item_view = ItemSelectionView(self.user_id, country)
@@ -135,7 +127,7 @@ class ItemSelect(discord.ui.Select):
         for i, item in enumerate(items):
             options.append(
                 discord.SelectOption(
-                    label=f"${item['price']:.2f} - {item['name']}",
+                    label=f"{item['name']} - ${item['price']:.2f}",
                     description=item['description'],
                     value=str(i)
                 )
