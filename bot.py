@@ -159,23 +159,9 @@ class ItemSelect(discord.ui.Select):
             item = MARKET_DATA[self.country][int(item_index)]
             selected_items.append(item)
         
-        # Show quantity selection view
-        quantity_view = QuantitySelectionView(self.user_id, self.country, selected_items)
-        
-        embed = discord.Embed(
-            title="📦 Select Quantities",
-            description="Choose the quantity for each selected item:",
-            color=discord.Color.orange()
-        )
-        
-        for item in selected_items:
-            embed.add_field(
-                name=f"${item['price']:.2f} - {item['name']}",
-                value=item['description'],
-                inline=False
-            )
-        
-        await interaction.response.edit_message(embed=embed, view=quantity_view)
+        # Show quantity input modal directly
+        modal = QuantityModal(self.user_id, self.country, selected_items)
+        await interaction.response.send_modal(modal)
 
 class QuantityModal(discord.ui.Modal):
     def __init__(self, user_id: int, country: str, selected_items: list):
@@ -253,22 +239,7 @@ class QuantityModal(discord.ui.Modal):
         item_view = ItemSelectionView(self.user_id, self.country)
         await interaction.response.edit_message(embed=embed, view=item_view)
 
-class QuantitySelectionView(discord.ui.View):
-    def __init__(self, user_id: int, country: str, selected_items: list):
-        super().__init__(timeout=300)
-        self.user_id = user_id
-        self.country = country
-        self.selected_items = selected_items
-    
-    @discord.ui.button(label="Enter Quantities", style=discord.ButtonStyle.success, emoji="📝")
-    async def enter_quantities(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This is not your cart!", ephemeral=True)
-            return
-        
-        # Show quantity input modal
-        modal = QuantityModal(self.user_id, self.country, self.selected_items)
-        await interaction.response.send_modal(modal)
+
 
 class CartManagementView(discord.ui.View):
     def __init__(self, user_id: int):
@@ -550,34 +521,20 @@ class ItemSelectionView(discord.ui.View):
                     'count': 1
                 }
         
-        embed = discord.Embed(
-            title="🛒 Your Shopping Cart",
-            description="Review your items and total below.",
-            color=discord.Color.blue()
-        )
-        
+        # Create cart display string
+        cart_display = ""
         for item_data in item_counts.values():
             item = item_data['item']
             count = item_data['count']
             subtotal = item['price'] * count
-            
-            if count > 1:
-                embed.add_field(
-                    name=f"${item['price']:.2f} x{count} = ${subtotal:.2f}",
-                    value=f"**{item['name']}** - {item['description']}",
-                    inline=False
-                )
-            else:
-                embed.add_field(
-                    name=f"${item['price']:.2f}",
-                    value=f"**{item['name']}** - {item['description']}",
-                    inline=False
-                )
+            cart_display += f"- {count} {item['name']} : ${subtotal:.2f}\n"
         
-        embed.add_field(
-            name="💰 Current Total",
-            value=f"**${total:.2f} USD**",
-            inline=False
+        cart_display += f"\nTotal : ${total:.2f}"
+        
+        embed = discord.Embed(
+            title="🛒 Your Shopping Cart",
+            description=cart_display,
+            color=discord.Color.blue()
         )
         
         # Create cart management view with continue shopping
