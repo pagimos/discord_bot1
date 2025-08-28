@@ -114,50 +114,56 @@ class CountrySelectionView(discord.ui.View):
         ]
     )
     async def select_country(self, interaction: discord.Interaction, select: discord.ui.Select):
-        # Check if this is the correct user
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
-            return
-        
-        country_number = int(select.value)
-        
-        # Initialize user selection if not exists
-        if self.user_id not in ghost_selections:
-            ghost_selections[self.user_id] = {"country": None, "items": []}
-        
-        # Set selected country and clear previous items
-        ghost_selections[self.user_id]["country"] = country_number
-        ghost_selections[self.user_id]["items"] = []
-        
-        await interaction.response.send_message(f"✅ Selected country {country_number}! Now choose items from this country.", ephemeral=True)
-        
-        # Show items for selected country
-        await self.show_country_items(interaction, country_number)
+        try:
+            # Check if this is the correct user
+            if interaction.user.id != self.user_id:
+                await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
+                return
+            
+            country_number = int(select.value)
+            
+            # Initialize user selection if not exists
+            if self.user_id not in ghost_selections:
+                ghost_selections[self.user_id] = {"country": None, "items": []}
+            
+            # Set selected country and clear previous items
+            ghost_selections[self.user_id]["country"] = country_number
+            ghost_selections[self.user_id]["items"] = []
+            
+            # Show items for selected country
+            await self.show_country_items(interaction, country_number)
+        except Exception as e:
+            print(f"Error in select_country: {e}")
+            await interaction.response.send_message("❌ An error occurred while processing your country selection. Please try again.", ephemeral=True)
     
     async def show_country_items(self, interaction: discord.Interaction, country_number: int):
-        # Get items for selected country
-        country_items = self.get_country_items(country_number)
-        
-        embed = discord.Embed(
-            title=f"👻 {self.get_country_name(country_number)} - Choose Your Items",
-            description="Select up to 3 items from this country:",
-            color=0x4169E1
-        )
-        
-        for i, (item_name, price, description) in enumerate(country_items, 1):
-            embed.add_field(
-                name=f"{i}. {item_name}",
-                value=f"{description}\n**Price: {price}**",
-                inline=False
+        try:
+            # Get items for selected country
+            country_items = self.get_country_items(country_number)
+            
+            embed = discord.Embed(
+                title=f"👻 {self.get_country_name(country_number)} - Choose Your Items",
+                description=f"✅ Selected country {country_number}! Select up to 3 items from this country:",
+                color=0x4169E1
             )
-        
-        embed.set_footer(text="💀 Select up to 3 items, then confirm your purchase!")
-        
-        # Create item selection view
-        item_view = ItemSelectionView(self.user_id, country_number)
-        
-        # Send new message with items
-        await interaction.followup.send(embed=embed, view=item_view)
+            
+            for i, (item_name, price, description) in enumerate(country_items, 1):
+                embed.add_field(
+                    name=f"{i}. {item_name}",
+                    value=f"{description}\n**Price: {price}**",
+                    inline=False
+                )
+            
+            embed.set_footer(text="💀 Select up to 3 items, then confirm your purchase!")
+            
+            # Create item selection view
+            item_view = ItemSelectionView(self.user_id, country_number)
+            
+            # Update the original message with the new embed and view
+            await interaction.response.edit_message(embed=embed, view=item_view)
+        except Exception as e:
+            print(f"Error in show_country_items: {e}")
+            await interaction.response.send_message("❌ An error occurred while showing country items. Please try again.", ephemeral=True)
     
     def get_country_name(self, country_number: int):
         countries = ["Japan", "France", "Egypt", "Brazil", "Russia"]
@@ -199,36 +205,59 @@ class ItemSelectionView(discord.ui.View):
         super().__init__(timeout=300)
         self.user_id = user_id
         self.country_number = country_number
+        
+        # Dynamically generate select options based on country items
+        country_items = self.get_country_items(country_number)
+        select_options = []
+        
+        for i, (item_name, price, description) in enumerate(country_items, 1):
+            # Truncate long item names to fit Discord's label limit
+            label = f"{i}. {item_name[:20]}{'...' if len(item_name) > 20 else ''}"
+            select_options.append(
+                discord.SelectOption(
+                    label=label,
+                    value=str(i),
+                    description=f"{price} - {description[:50]}{'...' if len(description) > 50 else ''}"
+                )
+            )
+        
+        # Create the select menu with dynamic options
+        self.add_item(discord.ui.Select(
+            placeholder="Choose items (up to 3)...",
+            min_values=1,
+            max_values=3,
+            options=select_options,
+            custom_id="item_selection"
+        ))
     
-    @discord.ui.select(
-        placeholder="Choose items (up to 3)...",
-        min_values=1,
-        max_values=3,
-        options=[
-            discord.SelectOption(label="1. Item 1", value="1"),
-            discord.SelectOption(label="2. Item 2", value="2"),
-            discord.SelectOption(label="3. Item 3", value="3")
-        ]
-    )
-    async def select_items(self, interaction: discord.Interaction, select: discord.ui.Select):
-        # Check if this is the correct user
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
-            return
-        
-        selected_items = [int(value) for value in select.values]
-        
-        # Initialize user selection if not exists
-        if self.user_id not in ghost_selections:
-            ghost_selections[self.user_id] = {"country": None, "items": []}
-        
-        # Update selected items
-        ghost_selections[self.user_id]["items"] = selected_items
-        
-        await interaction.response.send_message(f"✅ Selected {len(selected_items)} items!", ephemeral=True)
-        
-        # Show selection summary
-        await self.show_selection_summary(interaction)
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Handle the select interaction manually since we're creating it dynamically
+        if interaction.data.get("custom_id") == "item_selection":
+            await self.handle_item_selection(interaction, interaction.data.get("values", []))
+            return False  # We've handled the interaction
+        return True
+    
+    async def handle_item_selection(self, interaction: discord.Interaction, values: list):
+        try:
+            # Check if this is the correct user
+            if interaction.user.id != self.user_id:
+                await interaction.response.send_message("❌ This shop is not for you! Use /ghost to create your own.", ephemeral=True)
+                return
+            
+            selected_items = [int(value) for value in values]
+            
+            # Initialize user selection if not exists
+            if self.user_id not in ghost_selections:
+                ghost_selections[self.user_id] = {"country": None, "items": []}
+            
+            # Update selected items
+            ghost_selections[self.user_id]["items"] = selected_items
+            
+            # Show selection summary
+            await self.show_selection_summary(interaction)
+        except Exception as e:
+            print(f"Error in handle_item_selection: {e}")
+            await interaction.response.send_message("❌ An error occurred while processing your selection. Please try again.", ephemeral=True)
     
     @discord.ui.button(label="🛒 Confirm Purchase", style=discord.ButtonStyle.success)
     async def confirm_purchase(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -286,8 +315,8 @@ class ItemSelectionView(discord.ui.View):
         for child in self.children:
             child.disabled = True
         
-        await interaction.response.edit_message(view=self)
-        await interaction.followup.send(embed=embed)
+        # Update the message with disabled buttons and show confirmation
+        await interaction.response.edit_message(view=self, embed=embed)
     
     async def clear_selection_action(self, interaction: discord.Interaction):
         # Check if this is the correct user
@@ -310,7 +339,7 @@ class ItemSelectionView(discord.ui.View):
         
         embed = discord.Embed(
             title="🛒 Your Selection Summary",
-            description=f"Country: {self.get_country_name(self.country_number)}",
+            description=f"✅ Selected {len(selected_items)} items from {self.get_country_name(self.country_number)}!",
             color=0x4169E1
         )
         
@@ -329,7 +358,8 @@ class ItemSelectionView(discord.ui.View):
         
         embed.set_footer(text="Click Confirm Purchase to complete your order!")
         
-        await interaction.followup.send(embed=embed)
+        # Update the current message with the selection summary
+        await interaction.response.edit_message(embed=embed)
     
     def get_country_name(self, country_number: int):
         countries = ["Japan", "France", "Egypt", "Brazil", "Russia"]
