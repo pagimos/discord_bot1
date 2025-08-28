@@ -55,98 +55,61 @@ MARKET_DATA = {
 # Store user orders
 user_orders = {}
 
-class MarketView(discord.ui.View):
+class CountrySelect(discord.ui.Select):
     def __init__(self, user_id: int):
-        super().__init__(timeout=300)  # 5 minutes timeout
         self.user_id = user_id
-        self.selected_items = []
         
-        # Initialize user order if not exists
-        if user_id not in user_orders:
-            user_orders[user_id] = []
-    
-    @discord.ui.button(label="Clear Cart", style=discord.ButtonStyle.danger, emoji="🗑️")
-    async def clear_cart(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This is not your cart!", ephemeral=True)
-            return
-        
-        user_orders[self.user_id] = []
-        self.selected_items = []
-        await interaction.response.send_message("🛒 Cart cleared!", ephemeral=True)
-    
-    @discord.ui.button(label="Confirm Order", style=discord.ButtonStyle.success, emoji="✅")
-    async def confirm_order(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This is not your cart!", ephemeral=True)
-            return
-        
-        if not user_orders[self.user_id]:
-            await interaction.response.send_message("Your cart is empty!", ephemeral=True)
-            return
-        
-        # Calculate total
-        total = sum(item["price"] for item in user_orders[self.user_id])
-        
-        # Create order summary
-        embed = discord.Embed(
-            title="🛒 Order Confirmed!",
-            color=discord.Color.green(),
-            timestamp=discord.utils.utcnow()
-        )
-        
-        for item in user_orders[self.user_id]:
-            embed.add_field(
-                name=f"${item['price']:.2f} - {item['name']}",
-                value=item['description'],
-                inline=False
+        options = [
+            discord.SelectOption(
+                label="United States",
+                description="Browse American specialty items",
+                emoji="🇺🇸",
+                value="United States"
+            ),
+            discord.SelectOption(
+                label="Japan",
+                description="Discover Japanese delicacies",
+                emoji="🇯🇵",
+                value="Japan"
+            ),
+            discord.SelectOption(
+                label="Italy",
+                description="Italian gourmet products",
+                emoji="🇮🇹",
+                value="Italy"
+            ),
+            discord.SelectOption(
+                label="France",
+                description="French luxury items",
+                emoji="🇫🇷",
+                value="France"
+            ),
+            discord.SelectOption(
+                label="Mexico",
+                description="Mexican traditional products",
+                emoji="🇲🇽",
+                value="Mexico"
             )
+        ]
         
-        embed.add_field(
-            name="💰 Total",
-            value=f"**${total:.2f} USD**",
-            inline=False
+        super().__init__(
+            placeholder="🌍 Choose a country to browse...",
+            min_values=1,
+            max_values=1,
+            options=options
         )
+    
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This market is not for you!", ephemeral=True)
+            return
         
-        embed.set_footer(text=f"Order by {interaction.user.display_name}")
-        
-        await interaction.response.send_message(embed=embed)
-        
-        # Clear the order after confirmation
-        user_orders[self.user_id] = []
-        self.selected_items = []
-
-class CountryView(discord.ui.View):
-    def __init__(self, user_id: int):
-        super().__init__(timeout=300)
-        self.user_id = user_id
-    
-    @discord.ui.button(label="🇺🇸 United States", style=discord.ButtonStyle.primary)
-    async def usa(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_country_items(interaction, "United States")
-    
-    @discord.ui.button(label="🇯🇵 Japan", style=discord.ButtonStyle.primary)
-    async def japan(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_country_items(interaction, "Japan")
-    
-    @discord.ui.button(label="🇮🇹 Italy", style=discord.ButtonStyle.primary)
-    async def italy(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_country_items(interaction, "Italy")
-    
-    @discord.ui.button(label="🇫🇷 France", style=discord.ButtonStyle.primary)
-    async def france(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_country_items(interaction, "France")
-    
-    @discord.ui.button(label="🇲🇽 Mexico", style=discord.ButtonStyle.primary)
-    async def mexico(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_country_items(interaction, "Mexico")
-    
-    async def show_country_items(self, interaction: discord.Interaction, country: str):
+        country = self.values[0]
         items = MARKET_DATA[country]
         
         embed = discord.Embed(
             title=f"🛍️ {country} Market",
-            description="Click on items to add them to your cart!",
+            description="Select multiple items to add to your cart!",
             color=discord.Color.blue()
         )
         
@@ -161,48 +124,151 @@ class CountryView(discord.ui.View):
         item_view = ItemSelectionView(self.user_id, country)
         await interaction.response.edit_message(embed=embed, view=item_view)
 
-class ItemSelectionView(discord.ui.View):
+class ItemSelect(discord.ui.Select):
     def __init__(self, user_id: int, country: str):
-        super().__init__(timeout=300)
         self.user_id = user_id
         self.country = country
+        
+        items = MARKET_DATA[country]
+        options = []
+        
+        for i, item in enumerate(items):
+            options.append(
+                discord.SelectOption(
+                    label=f"${item['price']:.2f} - {item['name']}",
+                    description=item['description'],
+                    value=str(i)
+                )
+            )
+        
+        super().__init__(
+            placeholder="🛒 Select items to add to your cart (you can select multiple)...",
+            min_values=1,
+            max_values=len(options),  # Allow selecting multiple items
+            options=options
+        )
     
-    @discord.ui.button(label="Add Item 1", style=discord.ButtonStyle.secondary, row=0)
-    async def item1(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.add_item(interaction, 0)
-    
-    @discord.ui.button(label="Add Item 2", style=discord.ButtonStyle.secondary, row=0)
-    async def item2(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.add_item(interaction, 1)
-    
-    @discord.ui.button(label="Add Item 3", style=discord.ButtonStyle.secondary, row=0)
-    async def item3(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.add_item(interaction, 2)
-    
-    @discord.ui.button(label="View Cart", style=discord.ButtonStyle.success, row=1)
-    async def view_cart(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.show_cart(interaction)
-    
-    async def add_item(self, interaction: discord.Interaction, item_index: int):
+    async def callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your cart!", ephemeral=True)
             return
-        
-        item = MARKET_DATA[self.country][item_index]
         
         # Initialize user order if not exists
         if self.user_id not in user_orders:
             user_orders[self.user_id] = []
         
-        # Add item to cart
-        user_orders[self.user_id].append(item)
+        added_items = []
+        total_added = 0
         
+        # Add all selected items to cart
+        for item_index in self.values:
+            item = MARKET_DATA[self.country][int(item_index)]
+            user_orders[self.user_id].append(item)
+            added_items.append(f"**{item['name']}** (${item['price']:.2f})")
+            total_added += item['price']
+        
+        items_text = "\n".join(added_items)
         await interaction.response.send_message(
-            f"✅ Added **{item['name']}** (${item['price']:.2f}) to your cart!",
+            f"✅ Added to cart:\n{items_text}\n\n💰 Total added: ${total_added:.2f}",
             ephemeral=True
         )
+
+class MarketView(discord.ui.View):
+    def __init__(self, user_id: int):
+        super().__init__(timeout=300)  # 5 minutes timeout
+        self.user_id = user_id
+        
+        # Initialize user order if not exists
+        if user_id not in user_orders:
+            user_orders[user_id] = []
     
-    async def show_cart(self, interaction: discord.Interaction):
+    @discord.ui.button(label="Clear Cart", style=discord.ButtonStyle.danger, emoji="🗑️")
+    async def clear_cart(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your cart!", ephemeral=True)
+            return
+        
+        user_orders[self.user_id] = []
+        await interaction.response.send_message("🛒 Cart cleared!", ephemeral=True)
+    
+    @discord.ui.button(label="Confirm Order", style=discord.ButtonStyle.success, emoji="✅")
+    async def confirm_order(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This is not your cart!", ephemeral=True)
+            return
+        
+        if not user_orders[self.user_id]:
+            await interaction.response.send_message("Your cart is empty!", ephemeral=True)
+            return
+        
+        # Calculate total and group items
+        total = 0
+        item_counts = {}
+        
+        for item in user_orders[self.user_id]:
+            item_key = (item['name'], item['price'])
+            if item_key in item_counts:
+                item_counts[item_key]['count'] += 1
+            else:
+                item_counts[item_key] = {
+                    'item': item,
+                    'count': 1
+                }
+            total += item['price']
+        
+        # Create order summary
+        embed = discord.Embed(
+            title="🛒 Order Confirmed!",
+            color=discord.Color.green(),
+            timestamp=discord.utils.utcnow()
+        )
+        
+        for item_data in item_counts.values():
+            item = item_data['item']
+            count = item_data['count']
+            subtotal = item['price'] * count
+            
+            if count > 1:
+                embed.add_field(
+                    name=f"${item['price']:.2f} x{count} = ${subtotal:.2f} - {item['name']}",
+                    value=item['description'],
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name=f"${item['price']:.2f} - {item['name']}",
+                    value=item['description'],
+                    inline=False
+                )
+        
+        embed.add_field(
+            name="💰 Total",
+            value=f"**${total:.2f} USD**",
+            inline=False
+        )
+        
+        embed.set_footer(text=f"Order by {interaction.user.display_name}")
+        
+        await interaction.response.send_message(embed=embed)
+        
+        # Clear the order after confirmation
+        user_orders[self.user_id] = []
+
+class CountryView(discord.ui.View):
+    def __init__(self, user_id: int):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.add_item(CountrySelect(user_id))
+
+class ItemSelectionView(discord.ui.View):
+    def __init__(self, user_id: int, country: str):
+        super().__init__(timeout=300)
+        self.user_id = user_id
+        self.country = country
+        self.add_item(ItemSelect(user_id, country))
+    
+    @discord.ui.button(label="View Cart", style=discord.ButtonStyle.success, emoji="🛒")
+    async def view_cart(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("This is not your cart!", ephemeral=True)
             return
@@ -211,9 +277,82 @@ class ItemSelectionView(discord.ui.View):
             await interaction.response.send_message("Your cart is empty!", ephemeral=True)
             return
         
-        # Create cart view
+        # Show current cart contents
+        cart_items = user_orders[self.user_id]
+        total = sum(item["price"] for item in cart_items)
+        
+        # Group items by name for display
+        item_counts = {}
+        for item in cart_items:
+            item_key = (item['name'], item['price'])
+            if item_key in item_counts:
+                item_counts[item_key]['count'] += 1
+            else:
+                item_counts[item_key] = {
+                    'item': item,
+                    'count': 1
+                }
+        
+        embed = discord.Embed(
+            title="🛒 Your Shopping Cart",
+            color=discord.Color.blue()
+        )
+        
+        for item_data in item_counts.values():
+            item = item_data['item']
+            count = item_data['count']
+            subtotal = item['price'] * count
+            
+            if count > 1:
+                embed.add_field(
+                    name=f"${item['price']:.2f} x{count} = ${subtotal:.2f}",
+                    value=f"**{item['name']}** - {item['description']}",
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name=f"${item['price']:.2f}",
+                    value=f"**{item['name']}** - {item['description']}",
+                    inline=False
+                )
+        
+        embed.add_field(
+            name="💰 Current Total",
+            value=f"**${total:.2f} USD**",
+            inline=False
+        )
+        
+        # Create cart management view
         cart_view = MarketView(self.user_id)
-        await interaction.response.edit_message(view=cart_view)
+        await interaction.response.edit_message(embed=embed, view=cart_view)
+    
+    @discord.ui.button(label="Browse Other Countries", style=discord.ButtonStyle.secondary, emoji="🌍")
+    async def browse_countries(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This market is not for you!", ephemeral=True)
+            return
+        
+        embed = discord.Embed(
+            title="🌍 International Market",
+            description="Welcome to the market! Choose a country to browse their unique items.",
+            color=discord.Color.gold()
+        )
+        
+        embed.add_field(
+            name="Available Countries",
+            value="🇺🇸 United States\n🇯🇵 Japan\n🇮🇹 Italy\n🇫🇷 France\n🇲🇽 Mexico",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="How it works",
+            value="1. Select a country from dropdown\n2. Choose multiple items to add to cart\n3. View cart and confirm order",
+            inline=False
+        )
+        
+        # Create country selection view
+        view = CountryView(interaction.user.id)
+        await interaction.response.edit_message(embed=embed, view=view)
 
 @bot.event
 async def on_ready():
